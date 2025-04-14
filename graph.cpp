@@ -1,111 +1,131 @@
 #include <iostream>
 #include <vector>
-#include <queue>
-#include <limits>
-
+#include <climits>
 using namespace std;
 
-const int INF = numeric_limits<int>::max();
+#define V 6 // Number of locations
 
-// Graph represented as an adjacency list
-// Each pair = (destination, weight)
-vector<vector<pair<int, int>>> graph;
-
-// Distance matrix for Floyd-Warshall
-vector<vector<int>> distFW;
-
-// Location names for display
-vector<string> locations = {
-    "Yamunotri", "Gangotri", "Kedarnath", "Badrinath"
+// Distance matrix (in kilometers)
+int graph[V][V] = {
+    {0, 150, INT_MAX, INT_MAX, 90, INT_MAX},        // Yamunotri
+    {150, 0, INT_MAX, 240, 100, INT_MAX},           // Gangotri
+    {INT_MAX, INT_MAX, 0, 200, INT_MAX, 80},        // Kedarnath
+    {INT_MAX, 240, 200, 0, INT_MAX, INT_MAX},       // Badrinath
+    {90, 100, INT_MAX, INT_MAX, 0, INT_MAX},        // Uttarkashi
+    {INT_MAX, INT_MAX, 80, INT_MAX, INT_MAX, 0}     // Guptkashi
 };
 
-// Function to add an edge between two places
-void addEdge(int u, int v, int weight) {
-    graph[u].push_back({v, weight});
-    graph[v].push_back({u, weight}); // Assuming undirected roads
-}
+// Human-readable names
+string places[V] = {
+    "Yamunotri", "Gangotri", "Kedarnath",
+    "Badrinath", "Uttarkashi", "Guptkashi"
+};
 
-// Function to initialize graph with sample Char Dham data
-void buildGraph() {
-    int n = locations.size();
-    graph.resize(n);
-
-    // Sample edges (can be modified or extended)
-    addEdge(0, 1, 110); // Yamunotri <-> Gangotri
-    addEdge(1, 2, 180); // Gangotri <-> Kedarnath
-    addEdge(2, 3, 120); // Kedarnath <-> Badrinath
-    addEdge(0, 2, 250); // Yamunotri <-> Kedarnath
-    addEdge(1, 3, 300); // Gangotri <-> Badrinath
-}
-
-// Dijkstra's Algorithm - single-source shortest path
 void dijkstra(int src) {
-    int n = graph.size();
-    vector<int> dist(n, INF);
+    vector<int> dist(V, INT_MAX);
+    vector<bool> visited(V, false);
     dist[src] = 0;
 
-    // Min-heap priority queue: (distance, node)
-    priority_queue<pair<int, int>, vector<pair<int, int>>, greater<>> pq;
-    pq.push({0, src});
+    for (int i = 0; i < V - 1; i++) {
+        int u = -1;
+        for (int j = 0; j < V; j++)
+            if (!visited[j] && (u == -1 || dist[j] < dist[u]))
+                u = j;
 
-    while (!pq.empty()) {
-        int u = pq.top().second;
-        int currentDist = pq.top().first;
-        pq.pop();
+        visited[u] = true;
 
-        for (auto it : graph[u]) {
-            int v = it.first;
-            int weight = it.second;
-            if (dist[v] > currentDist + weight) {
-                dist[v] = currentDist + weight;
-                pq.push({dist[v], v});
-            }
+        for (int v = 0; v < V; v++) {
+            if (!visited[v] && graph[u][v] != INT_MAX && dist[u] + graph[u][v] < dist[v])
+                dist[v] = dist[u] + graph[u][v];
         }
     }
 
-    // Print results
-    cout << "Shortest distances from " << locations[src] << ":\n";
-    for (int i = 0; i < n; ++i) {
-        cout << "→ " << locations[i] << ": ";
-        if (dist[i] == INF)
-            cout << "Unreachable\n";
+    cout << "\nShortest routes from " << places[src] << ":\n";
+    for (int i = 0; i < V; i++) {
+        if (i == src) continue;
+        cout << "To " << places[i] << ": ";
+        if (dist[i] == INT_MAX)
+            cout << "No direct route available.\n";
         else
             cout << dist[i] << " km\n";
     }
 }
 
-// Floyd-Warshall Algorithm - all-pairs shortest path
 void floydWarshall() {
-    int n = graph.size();
-    distFW.assign(n, vector<int>(n, INF));
+    int dist[V][V];
 
-    // Initialize with direct distances
-    for (int u = 0; u < n; ++u) {
-        distFW[u][u] = 0;
-        for (auto it : graph[u]) {
-            int v = it.first;
-            int weight = it.second;
-            distFW[u][v] = weight;
-        }
-    }
+    // Copy original distances
+    for (int i = 0; i < V; i++)
+        for (int j = 0; j < V; j++)
+            dist[i][j] = graph[i][j];
 
-    // Dynamic programming step
-    for (int k = 0; k < n; ++k)
-        for (int i = 0; i < n; ++i)
-            for (int j = 0; j < n; ++j)
-                if (distFW[i][k] != INF && distFW[k][j] != INF)
-                    distFW[i][j] = min(distFW[i][j], distFW[i][k] + distFW[k][j]);
+    // Apply Floyd-Warshall algorithm
+    for (int k = 0; k < V; k++)
+        for (int i = 0; i < V; i++)
+            for (int j = 0; j < V; j++)
+                if (dist[i][k] != INT_MAX && dist[k][j] != INT_MAX)
+                    dist[i][j] = min(dist[i][j], dist[i][k] + dist[k][j]);
 
-    // Print result
-    cout << "\nAll-Pairs Shortest Paths (Floyd-Warshall):\n";
-    for (int i = 0; i < n; ++i) {
-        cout << locations[i] << " →\n";
-        for (int j = 0; j < n; ++j) {
-            cout << "  to " << locations[j] << ": ";
-            if (distFW[i][j] == INF)
-                cout << "Unreachable\n";
+    // Display result
+    cout << "\nAll-Pairs Shortest Path Matrix:\n\n";
+    cout << "         ";
+    for (int i = 0; i < V; i++)
+        cout << places[i].substr(0, 6) << "\t";
+    cout << endl;
+
+    for (int i = 0; i < V; i++) {
+        cout << places[i].substr(0, 6) << "  ";
+        for (int j = 0; j < V; j++) {
+            if (dist[i][j] == INT_MAX)
+                cout << "INF\t";
             else
-                cout << distFW[i][j] << " km\n";
+                cout << dist[i][j] << "\t";
         }
+        cout << endl;
     }
+}
+
+void showPlaces() {
+    cout << "\nAvailable Locations:\n";
+    for (int i = 0; i < V; i++)
+        cout << "  " << i << ". " << places[i] << endl;
+}
+
+int main() {
+    int choice;
+    cout << "Welcome to DevBhoomi Navigator – Char Dham Route Planner (Phase 1)\n";
+
+    do {
+        cout << "\n=============================\n";
+        cout << "Choose an option:\n";
+        cout << "  1. Find shortest route from one place (Dijkstra)\n";
+        cout << "  2. Show all shortest routes between all places (Floyd-Warshall)\n";
+        cout << "  3. Exit\n";
+        cout << "=============================\n";
+        cout << "Your choice: ";
+        cin >> choice;
+
+        if (choice == 1) {
+            showPlaces();
+            int src;
+            cout << "Enter the number of your starting location: ";
+            cin >> src;
+
+            if (src >= 0 && src < V) {
+                dijkstra(src);
+            } else {
+                cout << "Invalid place number. Try again.\n";
+            }
+
+        } else if (choice == 2) {
+            floydWarshall();
+
+        } else if (choice != 3) {
+            cout << "Invalid option! Please choose from the menu.\n";
+        }
+
+    } while (choice != 3);
+
+    cout << "\nThank you for using DevBhoomi Navigator. Safe travels!\n";
+    return 0;
 }
